@@ -7,6 +7,27 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 
+def web_driver():
+    options = webdriver.ChromeOptions()
+    prefs = {
+        "download.default_directory": f"{os.getcwd()}"
+    }
+    options.add_experimental_option("prefs", prefs)
+    options.add_argument("start-maximized")
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=options)
+    driver.implicitly_wait(30)
+    return driver
+
+def sdf_download(plant_name):
+    driver = web_driver()
+    driver.get('https://lotus.naturalproducts.net/')
+    driver.find_element(By.XPATH, '//input[@id="searchInput"]').send_keys(plant_name)
+    driver.find_element(By.XPATH, '//button[@id="searchButton"]').click()
+    time.sleep(15)
+    driver.find_element(By.ID, "downloadSDFfile").click()
+    time.sleep(15)
+
 def smiles_to_xlsx():
     with open('lotus_simple_search_result.sdf') as file:
         content = file.read()
@@ -32,11 +53,7 @@ def create_END_TABLE(list_of_smiles:list):
     pathway = []
     superclass = []
     class_last = []
-    options = webdriver.ChromeOptions()
-    options.add_argument( "--window-size=1920,1080")
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=options)
-    driver.implicitly_wait(20)
+    driver = web_driver()
     driver.get('https://lotus.naturalproducts.net/')
     time.sleep(30)
     for i in list_of_smiles:
@@ -71,35 +88,24 @@ def create_END_TABLE(list_of_smiles:list):
     os.remove('SMILES_NEW.xlsx')
     os.remove('lotus_simple_search_result.sdf')
 
-def sdf_download(plant_name):
-    options = webdriver.ChromeOptions()
-    prefs = {
-        "download.default_directory":f"{os.getcwd()}"
-    }
-    options.add_experimental_option("prefs", prefs)
-    options.add_argument("start-maximized")
-    # options.page_load_strategy = 'eager'
-    service = Service(ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service, options=options)
-    driver.implicitly_wait(30)
-    driver.get('https://lotus.naturalproducts.net/')
-    driver.find_element(By.XPATH, '//input[@id="searchInput"]').send_keys(plant_name)
-    driver.find_element(By.XPATH, '//button[@id="searchButton"]').click()
-    time.sleep(15)
-    driver.find_element(By.ID, "downloadSDFfile").click()
-    time.sleep(15)
-
-plant_name = input('Введите латинское название растения: ')
-flag = 0
-try:
-    sdf_download(plant_name)
-except:
-    flag = 1
-if flag == 0:
-    list_of_smiles = smiles_to_xlsx()
-else:
-    print('Для данного растения в базе данных отсутствуют известные вещества')
-create_END_TABLE(list_of_smiles)
-
+def tagets_for_calculation():
+    predicted = pd.read_excel('TOTAL_TARGETS_PREDICTED.xlsx')
+    list_predicted = predicted['targets'].tolist()
+    proved = pd.read_excel('TOTAL_TARGETS_PROVED.xlsx')
+    list_proved = proved['targets'].tolist()
+    list_total = []
+    list_total.extend(list_predicted)
+    list_total.extend(list_proved)
+    list_total = list(set(list_total))
+    l_t = pd.Series(list_total, name='targets')
+    l_t.to_excel('TARGETS_FOR_CALCULATION.xlsx')
+    os.remove('TOTAL_TARGETS_PREDICTED.xlsx')
+    os.remove('TOTAL_TARGETS_PROVED.xlsx')
+    df = pd.read_excel('TARGETS_FOR_CALCULATION.xlsx')
+    targets_list_calc = df['targets'].tolist()
+    targets_list_calc_str = ''
+    for i in targets_list_calc:
+        targets_list_calc_str += (' ' + i)
+    print(targets_list_calc_str)
 
 

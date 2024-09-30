@@ -6,19 +6,12 @@ from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
+import functions as f
 
 df = pd.read_excel('END_TABLE.xlsx')
 list_of_smiles = df['SMILES'].tolist()
 total_list_of_targets = []
-options = webdriver.ChromeOptions()
-prefs = {
-    "download.default_directory":f"{os.getcwd()}"
-}
-options.add_experimental_option("prefs", prefs)
-options.add_argument("start-maximized")
-service = Service(ChromeDriverManager().install())
-driver = webdriver.Chrome(service=service, options=options)
-driver.implicitly_wait(20)
+driver = f.web_driver()
 driver.get('https://tox.charite.de/protox3/')
 driver.find_element(By.XPATH, '(//div[@id="ddtopmenubar"]//a[@target="_self"])[2]').click()
 time.sleep(1)
