@@ -6,6 +6,7 @@ from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
+import xlsxwriter
 
 def web_driver():
     options = webdriver.ChromeOptions()
@@ -19,8 +20,7 @@ def web_driver():
     driver.implicitly_wait(30)
     return driver
 
-def sdf_download(plant_name):
-    driver = web_driver()
+def sdf_download(plant_name, driver):
     driver.get('https://lotus.naturalproducts.net/')
     driver.find_element(By.XPATH, '//input[@id="searchInput"]').send_keys(plant_name)
     driver.find_element(By.XPATH, '//button[@id="searchButton"]').click()
@@ -108,4 +108,180 @@ def tagets_for_calculation():
         targets_list_calc_str += (' ' + i)
     print(targets_list_calc_str)
 
+
+def toxicity_estimation(driver):
+    df = pd.read_excel('END_TABLE.xlsx')
+    list_of_smiles = df['SMILES'].tolist()
+    total_list_of_targets = []
+    predicted_LD50 = []
+    predicted_toxicity_class = []
+    average_similarity = []
+    prediction_accuracy = []
+
+    driver.get('https://tox.charite.de/protox3/')
+    driver.find_element(By.XPATH, '(//div[@id="ddtopmenubar"]//a[@target="_self"])[2]').click()
+    time.sleep(1)
+    for i in list_of_smiles:
+        try:
+            driver.find_element(By.ID, "smiles_field").send_keys(i)
+            time.sleep(3)
+            driver.find_element(By.XPATH, '(//input[@type="submit"])[2]').click()
+            time.sleep(3)
+            driver.find_element(By.ID, "button_all").click()
+            time.sleep(3)
+            driver.find_element(By.ID, "start_pred").click()
+            time.sleep(3)
+        except:
+            pass
+        try:
+            predicted_LD50.append(driver.find_element(By.XPATH, '//h1[@style="background:#f6faf3"]').text[16::])
+            time.sleep(1)
+        except:
+            predicted_LD50.append(0)
+        try:
+            predicted_toxicity_class.append(
+                driver.find_element(By.XPATH, '//h1[@style="background:#C8FE2E"]').text[26::])
+            time.sleep(1)
+        except:
+            predicted_toxicity_class.append(0)
+        try:
+            average_similarity.append(
+                driver.find_element(By.XPATH, '(//h1[@style="background:#9ff781"])[1]').text[20::])
+            time.sleep(1)
+        except:
+            average_similarity.append(0)
+        try:
+            prediction_accuracy.append(
+                driver.find_element(By.XPATH, '(//h1[@style="background:#9ff781"])[2]').text[21::])
+            time.sleep(1)
+        except:
+            prediction_accuracy.append(0)
+        driver.find_element(By.XPATH, '(//div[@id="ddtopmenubar"]//a[@target="_self"])[2]').click()
+        time.sleep(1)
+    df = pd.read_excel('END_TABLE.xlsx')
+    SMILES = df['SMILES'].tolist()
+    name = df['name'].tolist()
+    pathway = df['pathway'].tolist()
+    superclass = df['superclass'].tolist()
+    class_col = df['class'].tolist()
+    df_table = pd.DataFrame(np.column_stack((SMILES, name, pathway, superclass, class_col, predicted_LD50,
+                                             predicted_toxicity_class, average_similarity, prediction_accuracy)),
+                            columns=['SMILES', 'name', 'pathway', 'superclass', 'class', 'predicted_LD50',
+                                     'predicted_toxicity_class', 'average_similarity', 'prediction_accuracy'])
+    df_table.to_excel('END_TABLE_TOXICITY.xlsx')
+    os.remove('END_TABLE.xlsx')
+
+def total_target_prediction(driver):
+    driver.get('https://prediction.charite.de/subpages/target_prediction.php')
+    time.sleep(5)
+    df = pd.read_excel('END_TABLE_TOXICITY.xlsx')
+    list_of_smiles = df['SMILES'].tolist()
+    time.sleep(5)
+    targets = []
+    for i in list_of_smiles:
+        try:
+            driver.find_element(By.ID, "smiles_string").send_keys(i)
+            time.sleep(5)
+            driver.find_element(By.XPATH, '(//button[@class="btn btn-outline-secondary"])[2]').click()
+            time.sleep(3)
+            driver.find_element(By.XPATH, '//button[@name="searchtype"]').click()
+            time.sleep(5)
+            button_numbers = driver.find_elements(By.XPATH, '//button[@class="dt-button buttons-excel buttons-html5"]')
+            if len(button_numbers) == 3:
+                driver.find_element(By.XPATH, '(//button[@class="dt-button buttons-excel buttons-html5"])[2]').click()
+                time.sleep(5)
+                df = pd.read_excel('Targets.xlsx')
+                df.drop([0], inplace=True)
+                uniprot_id = []
+                uniprot_id = df['Unnamed: 2'].tolist()
+                targets.extend(uniprot_id)
+                os.remove('Targets.xlsx')
+            elif len(button_numbers) == 2:
+                driver.find_element(By.XPATH, '(//button[@class="dt-button buttons-excel buttons-html5"])[1]').click()
+                time.sleep(5)
+                df = pd.read_excel('Targets.xlsx')
+                df.drop([0], inplace=True)
+                uniprot_id = []
+                uniprot_id = df['Unnamed: 2'].tolist()
+                targets.extend(uniprot_id)
+                os.remove('Targets.xlsx')
+            driver.get('https://prediction.charite.de/subpages/target_prediction.php')
+            time.sleep(5)
+        except:
+            pass
+    targets_= list(set(targets))
+    a_ser = pd.Series(targets, name='targets')
+    a_ser.to_excel('TOTAL_TARGETS_PREDICTED.xlsx')
+
+
+def targets_calculation(driver):
+    predicted = pd.read_excel('TOTAL_TARGETS_PREDICTED.xlsx')
+    list_predicted = predicted['targets'].tolist()
+    proved = pd.read_excel('TOTAL_TARGETS_PROVED.xlsx')
+    list_proved = proved['targets'].tolist()
+    list_total = []
+    list_total.extend(list_predicted)
+    list_total.extend(list_proved)
+    list_total = list(set(list_total))
+    l_t = pd.Series(list_total, name='targets')
+    l_t.to_excel('TARGETS_FOR_CALCULATION.xlsx')
+    os.remove('TOTAL_TARGETS_PREDICTED.xlsx')
+    os.remove('TOTAL_TARGETS_PROVED.xlsx')
+    df = pd.read_excel('TARGETS_FOR_CALCULATION.xlsx')
+    targets_list_calc = df['targets'].tolist()
+    targets_list_calc_str = ''
+    for i in targets_list_calc:
+        targets_list_calc_str += (' ' + i)
+    print(targets_list_calc_str)
+
+    driver.get('http://bioinformatics.sdstate.edu/go/')
+    time.sleep(5)
+    driver.find_element(By.ID, "input_text").send_keys(targets_list_calc_str)
+    time.sleep(10)
+    driver.find_element(By.ID, "goButton").click()
+    time.sleep(2)
+    driver.find_element(By.ID, "selectGO-selectized").click()
+    time.sleep(3)
+    driver.find_element(By.XPATH, '(//div[@data-value="Disease.Alliance"])[1]').click()
+    time.sleep(3)
+    driver.find_element(By.XPATH, '(//li[@role="presentation"])[2]').click()
+    time.sleep(3)
+    driver.find_element(By.ID, "download_barplot-download_popup").click()
+    time.sleep(2)
+    driver.find_element(By.XPATH, '//a[@id="download_barplot-dl_pdf"]').click()
+    time.sleep(2)
+    os.rename('barplot.pdf.crdownload', 'barplot.pdf')
+
+def total_targets_proved(driver):
+    driver.get('https://prediction.charite.de/subpages/target_prediction.php')
+    time.sleep(5)
+    df = pd.read_excel('END_TABLE_TOXICITY.xlsx')
+    list_of_smiles = df['SMILES'].tolist()
+    time.sleep(5)
+    targets = []
+    for i in list_of_smiles:
+        try:
+            driver.find_element(By.ID, "smiles_string").send_keys(i)
+            time.sleep(5)
+            driver.find_element(By.XPATH, '(//button[@class="btn btn-outline-secondary"])[2]').click()
+            time.sleep(3)
+            driver.find_element(By.XPATH, '//button[@name="searchtype"]').click()
+            time.sleep(5)
+            button_numbers = driver.find_elements(By.XPATH, '//button[@class="dt-button buttons-excel buttons-html5"]')
+            if len(button_numbers) == 3:
+                driver.find_element(By.XPATH, '(//button[@class="dt-button buttons-excel buttons-html5"])[1]').click()
+                time.sleep(5)
+                df = pd.read_excel('Targets.xlsx')
+                df.drop([0], inplace=True)
+                uniprot_id = []
+                uniprot_id = df['Unnamed: 2'].tolist()
+                targets.extend(uniprot_id)
+                os.remove('Targets.xlsx')
+            driver.get('https://prediction.charite.de/subpages/target_prediction.php')
+            time.sleep(5)
+        except:
+            pass
+    targets_= list(set(targets))
+    a_ser = pd.Series(targets, name='targets')
+    a_ser.to_excel('TOTAL_TARGETS_PROVED.xlsx')
 

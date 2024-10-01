@@ -7,7 +7,6 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 import functions as f
+
 driver = f.web_driver()
-f.toxicity_estimation(driver)
-
-
+f.targets_calculation(driver)
