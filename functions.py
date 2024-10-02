@@ -169,12 +169,11 @@ def toxicity_estimation(driver):
                             columns=['SMILES', 'name', 'pathway', 'superclass', 'class', 'predicted_LD50',
                                      'predicted_toxicity_class', 'average_similarity', 'prediction_accuracy'])
     df_table.to_excel('END_TABLE_TOXICITY.xlsx')
-    os.remove('END_TABLE.xlsx')
 
 def total_target_prediction(driver):
     driver.get('https://prediction.charite.de/subpages/target_prediction.php')
     time.sleep(5)
-    df = pd.read_excel('END_TABLE_TOXICITY.xlsx')
+    df = pd.read_excel('END_TABLE.xlsx')
     list_of_smiles = df['SMILES'].tolist()
     time.sleep(5)
     targets = []
@@ -255,7 +254,7 @@ def targets_calculation(driver):
 def total_targets_proved(driver):
     driver.get('https://prediction.charite.de/subpages/target_prediction.php')
     time.sleep(5)
-    df = pd.read_excel('END_TABLE_TOXICITY.xlsx')
+    df = pd.read_excel('END_TABLE.xlsx')
     list_of_smiles = df['SMILES'].tolist()
     time.sleep(5)
     targets = []
